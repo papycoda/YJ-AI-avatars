@@ -4,7 +4,7 @@ class Picture(BaseModel):
     file: UploadFile
 
 @router.post("/pictures/")
-def create_picture(picture: Picture):
+async def create_picture(picture: Picture):
     try:
         file_path = os.path.join("static", "pictures", picture.file.filename)
         with open(file_path, "wb") as f:
