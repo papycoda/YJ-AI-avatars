@@ -11,4 +11,7 @@ collections = db.avatars
 
 async def fetch_all_avatars() -> list[avatars]:
     avatars = []
-    
+    cursor = collection.find({})
+    async for document in cursor:
+        avatars.append(avatar(**document))
+    return avatars
