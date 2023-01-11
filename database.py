@@ -10,9 +10,9 @@ db =client.avatardb
 
 
 
-collections = db.avatars
+collection = db.avatars
 
-async def fetch_all_avatars() -> list[avatars]:
+async def fetch_all_avatars() -> list[avatar]:
     avatars = []
     cursor = collection.find({})
     async for document in cursor:
