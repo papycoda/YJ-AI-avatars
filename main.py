@@ -2,12 +2,15 @@ from fastapi import APIRouter, HTTPException, File, UploadFile, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from fastapi.staticfiles import StaticFiles
+#import FILersponse
+from fastapi.responses import FileResponse
 import os
 import pathlib
 import shutil
 
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
+
 
 router = APIRouter()
 
@@ -30,7 +33,7 @@ allowed_ext = ["jpg", "jpeg", "png"]
 
 @app.post("/pictures/")
 
-async def create_upload_file(file: UploadFile):
+async def create_avatar_file(file: UploadFile):
     if file.filename.split(".")[-1] not in allowed_ext:
         raise HTTPException(status_code=400, detail="File extension not allowed")
     try:
@@ -42,55 +45,60 @@ async def create_upload_file(file: UploadFile):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     return {"filename": file.filename }
-#get all avatars
 
+    
+#get all avatars
 @app.get("/pictures/")
 def read_all_avatars():
     try:
-        path = pathlib.Path(os.path.join("static", "pictures"))
-        if path.exists():
-            return {"filenames": [file.name for file in path.iterdir()]}
-        else:
-            raise HTTPException(status_code=404, detail="Avatar not found")
+        path = os.path.join("static", "pictures")
+        os.makedirs(path, exist_ok=True)
+        return {"filenames": ["/static/" + f for f in os.listdir(path)]}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
+
+
+#get avatar by filename
 @app.get("/pictures/{filename}")
-def read_avatar(filename: str):
-    try:
-        file_path = pathlib.Path(os.path.join("static", "pictures")) / filename
-        if file_path.exists():
-            with file_path.open("rb") as f:
-                return {"filename": filename, "data": f.read()}
-        else:
-            raise HTTPException(status_code=404, detail="Avatar not found")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+def read_picture(filename: str):
+    file_path = os.path.join("static", "pictures", filename)
+    if os.path.exists(file_path):
+        return FileResponse(file_path)
+    else:
+        raise HTTPException(status_code=404, detail="Picture not found")
 
-@router.put("/pictures/{filename}")
-def update_avatar_picture(filename: str, avatar: Avatar):
+
+@app.put("/pictures/{filename}")
+async def update_picture(filename: str, picture: UploadFile):
+    if picture.filename.split(".")[-1] not in allowed_ext:
+        raise HTTPException(status_code=400, detail="File extension not allowed")
     try:
         file_path = os.path.join("static", "pictures", filename)
         if os.path.exists(file_path):
             with open(file_path, "wb") as f:
-                f.write(avatar.file.read())
+                f.write(picture.file.read())
             return {"filename": filename}
         else:
-            raise HTTPException(status_code=404, detail="Avatar not found")
+            raise HTTPException(status_code=404, detail="Picture not found")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.delete("/pictures/{filename}")
-def delete_avatar_picture(filename: str):
+    
+
+@app.delete("/pictures/{filename}")
+def delete_picture(filename: str):
     try:
         file_path = os.path.join("static", "pictures", filename)
         if os.path.exists(file_path):
             os.remove(file_path)
             return {"filename": filename}
         else:
-            raise HTTPException(status_code=404, detail="Avatar not found")
+            raise HTTPException(status_code=404, detail="Picture not found")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 app.include_router(router)
 
