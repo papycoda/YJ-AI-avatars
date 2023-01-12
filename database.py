@@ -1,48 +1,56 @@
 import os
 import motor.motor_asyncio
-from model import *
-from fastapi import FastAPI, File, UploadFile
+from fastapi import FastAPI, File, UploadFile, HTTPException
 
-MONGO_URL = os.environ.get('MONGO_URL')
-client = motor.motor_asyncio.AsyncIOMotorClient(os.environ.get('MONGODB_URI'))
+MONGO_URL = "mongodb://localhost:27017/"
+client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_URL)
+db = client.avatardb
 
-db =client.avatardb
+class Avatar:
+    def __init__(self, _id: str, name: str, data: bytes):
+        self._id = _id
+        self.name = name
+        self.data = data
 
-
-
-collection = db.avatars
+allowed_ext = ["jpg", "jpeg", "png"]
 
 async def fetch_all_avatars() -> list[Avatar]:
     avatars = []
-    cursor = collection.find({})
-    async for document in cursor:
-        avatars.append(Avatar(**document))
-    return avatars
+    try:
+        cursor = db.avatars.find({})
+        async for document in cursor:
+            avatars.append(Avatar(**document))
+        return avatars
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
-async def create_avatar(avatar):
-    #upload image to mongodb with fastapi to create the avatar base
-    avatar = await collection.insert_one(avatar)
-    new_avatar = await collection.find_one({"_id": avatar.inserted_id})
-    return avatar(**new_avatar)
+async def create_avatar(avatar: Avatar):
+    try:
+        if avatar.name.split(".")[-1] not in allowed_ext:
+            raise HTTPException(status_code=400, detail="File extension not allowed")
+        result = await db.avatars.insert_one(avatar.__dict__)
+        if not result.acknowledged:
+            raise HTTPException(status_code=500, detail="Failed to create avatar")
+        return avatar
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
-async def update_avatar(avatar_id, data):
-    #update the avatar base with new image
-    if len(data) < 1:
-        return False
-    avatar = await collection.find_one({"_id": avatar_id})
-    if avatar:
-        updated_avatar = await collection.update_one(
-            {"_id": avatar_id}, {"$set": data}
-        )
-        if updated_avatar:
-            return True
-        return False
-
-async def delete_avatar(avatar_id):
-    avatar = await collection.find_one
-    if avatar:
-        await collection.delete_one({"_id": avatar_id})
+async def update_avatar(avatar_id: str, avatar: Avatar):
+    try:
+        result = await db.avatars.update_one({"_id": avatar_id}, {"$set": avatar.__dict__})
+        if result.matched_count < 1:
+            raise HTTPException(status_code=404, detail="Avatar not found")
+        elif result.modified_count < 1:
+            raise HTTPException(status_code=400, detail="No changes made")
         return True
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
-
-
+async def delete_avatar(avatar_id: str):
+    try:
+        result = await db.avatars.delete_one({"_id": avatar_id})
+        if result.deleted_count < 1:
+            raise HTTPException(status_code=404, detail="Avatar not found")
+        return True
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
