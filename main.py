@@ -1,10 +1,13 @@
 from fastapi import APIRouter, HTTPException, File, UploadFile, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from fastapi.staticfiles import StaticFiles
 import os
 import pathlib
 import shutil
+
 app = FastAPI()
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 router = APIRouter()
 
@@ -24,24 +27,21 @@ class Avatar(BaseModel):
 allowed_ext = ["jpg", "jpeg", "png"]
 
 
-@app.post("/pictures/")
-async def create_avatar(avatar: Avatar):
-    try:
-        file_name, file_ext = os.path.splitext(avatar.file.filename)
-        if file_ext.strip(".") not in allowed_ext:
-            raise HTTPException(status_code=400, detail="Unsupported file extension")
 
-        path = pathlib.Path(os.path.join("static", "pictures"))
-        path.mkdir(parents=True, exist_ok=True)
-        file_path = path / avatar.file.filename
-        if file_path.exists():
-            raise HTTPException(status_code=409, detail="Avatar already exists")
-        with file_path.open("wb") as f:
-            f.write(avatar.file.read())
-        return {"filename": avatar.file.filename}
+@app.post("/pictures/")
+
+async def create_upload_file(file: UploadFile):
+    if file.filename.split(".")[-1] not in allowed_ext:
+        raise HTTPException(status_code=400, detail="File extension not allowed")
+    try:
+        path = os.path.join("static", "pictures")
+        if not os.path.exists(path):
+            os.makedirs(path)
+        with open(os.path.join(path, file.filename), "wb") as f:
+            f.write(file.file.read()) 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
+    return {"filename": file.filename }
 #get all avatars
 
 @app.get("/pictures/")
