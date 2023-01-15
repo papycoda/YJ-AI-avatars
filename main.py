@@ -56,7 +56,7 @@ def read_all_avatars():
     try:
         path = os.path.join("static", "pictures")
         os.makedirs(path, exist_ok=True)
-        return {"filenames": ["/static/" + f for f in os.listdir(path)]}
+        return {"filenames": [f for f in os.listdir(path)]}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
